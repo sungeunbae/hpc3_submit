@@ -12,6 +12,8 @@ set -euo pipefail
 export gmsim="/nesi/project/nesi00213/Environments/baes2025"
 source "$gmsim/py311/bin/activate"
 
+export PYTHONPATH=$gmsim/workflow:$PYTHONPATH
+
 # ─── Select REL_DIR from DIR_LIST ───────────────────────────────────────────────
 REL_DIR=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$DIR_LIST")
 cd "$REL_DIR" || { echo "Failed to cd into $REL_DIR"; exit 1; }
@@ -36,6 +38,7 @@ SCRIPTS_DIR="/nesi/nobackup/nesi00213/RunFolder/submit"
 echo "→ Fixing old NeSI paths for $FAULT_DIR"
 "$SCRIPTS_DIR/fix_old_nesi_path.sh" "$FAULT_DIR" 2>/dev/null || true
 
+mkdir -p "$REL_DIR/LF"
 # ─── Generate e3d.par if Missing ────────────────────────────────────────────────
 if [[ ! -f "$REL_DIR/LF/e3d.par" ]]; then
     echo "e3d.par not found, generating..."

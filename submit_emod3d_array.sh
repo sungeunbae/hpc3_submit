@@ -70,29 +70,60 @@ FAULT=$(basename "$BASE_DIR")
 DIR_LIST="${BASE_DIR%/}/.sim_dirs.list"
 > "$DIR_LIST"
 
-# Include median
+
+# Function to check if a run is successfully finished
+is_completed() {
+    local dir="$1"
+    local name="$2"
+    # Construct rlog path: e.g., AwatereSW_REL21/LF/Rlog/AwatereSW_REL21-00000.rlog
+    local rlog="$dir/LF/Rlog/${name}-00000.rlog"
+
+    if [[ -f "$rlog" ]]; then
+        # Check if the specific success message exists in the file
+        if grep -q "PROGRAM emod3d-mpi IS FINISHED" "$rlog"; then
+            return 0 # True (Completed)
+        fi
+    fi
+    return 1 # False (Not completed)
+}
+# 1. Check Median
 MEDIAN_DIR="$BASE_DIR/$FAULT"
 if [[ -f "$MEDIAN_DIR/sim_params.yaml" ]]; then
-  echo "$MEDIAN_DIR" >> "$DIR_LIST"
+    if is_completed "$MEDIAN_DIR" "$FAULT"; then
+        echo "→ Skipping completed Median ($FAULT)"
+    else
+        echo "$MEDIAN_DIR" >> "$DIR_LIST"
+    fi
 fi
 
-# Include RELs
-find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -name "${FAULT}_REL*" | while read -r dir; do
+# 2. Check RELs
+find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d -name "${FAULT}_REL*" | sort | while read -r dir; do
   REL_NAME=$(basename "$dir")
   REL_ID="${REL_NAME##*_}"  # Extract REL01, REL02, etc.
+
+  # Check Exclude List
   if [[ ",$EXCLUDE_LIST," == *",$REL_ID,"* ]]; then
     echo "→ Skipping excluded $REL_NAME"
     continue
   fi
+
+  # Check Success Marker (Rlog content)
+  if is_completed "$dir" "$REL_NAME"; then
+    echo "→ Skipping completed $REL_NAME (Found success in rlog)"
+    continue
+  fi
+
+  # Add to list if valid sim
   if [[ -f "$dir/sim_params.yaml" ]]; then
     echo "$dir" >> "$DIR_LIST"
   fi
 done
 
-NUM_DIRS=$(wc -l < "$DIR_LIST")
-if [[ "$NUM_DIRS" -eq 0 ]]; then echo "No sim_params.yaml found."; exit 1; fi
 
-echo "Found $NUM_DIRS runs for $FAULT. Submitting job array..."
+NUM_DIRS=$(wc -l < "$DIR_LIST")
+if [[ "$NUM_DIRS" -eq 0 ]]; then echo "No sim_params.yaml found (or all completed)."; exit 1; fi
+
+echo "Found $NUM_DIRS runs remaining for $FAULT. Submitting job array..."
 
 # ─── Submit Job Array ───────────────────────────────────────────────────────────
 sbatch \

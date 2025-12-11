@@ -16,7 +16,7 @@ set -eou pipefail
 
 
 ## Get the current working directory
-SCRIPT_DIR=/nesi/nobackup/nesi00213/RunFolder/submit
+SCRIPTS_DIR=/nesi/nobackup/nesi00213/RunFolder/submit
 REL_DIR="$PWD"
 FAULT_DIR=$(dirname "$REL_DIR")
 
@@ -29,6 +29,7 @@ REL_NAME=$(basename "$REL_DIR")
 JOBNAME=${REL_NAME:-""}
 export gmsim="/nesi/project/nesi00213/Environments/baes2025"
 source $gmsim/py311/bin/activate
+export PYTHONPATH=$gmsim/workflow:$PYTHONPATH
 
 # Retrieve memory and wall clock time dynamically
 MEMORY=${SLURM_MEM_PER_NODE:-"Unknown"}
